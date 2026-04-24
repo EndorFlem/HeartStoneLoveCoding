@@ -6,6 +6,7 @@
 
 #include <array>
 #include <iostream>
+#include <vector>
 
 std::array<Card *, 100> allCards = {
     new Minion(1, "Test Minion", HSClasses::ROGUE, 1, 1),
@@ -15,3 +16,15 @@ std::array<Card *, 100> allCards = {
                 std::cout << "Test Spell has played played\n";
               }),
 };
+
+inline std::vector<Card *>
+getCardCollection(std::initializer_list<std::size_t> cardNumbers) {
+  std::vector<Card *> result;
+  result.reserve(cardNumbers.size());
+
+  for (std::size_t cardNumber : cardNumbers) {
+    result.push_back(allCards.at(cardNumber)->clone());
+  }
+
+  return result;
+}

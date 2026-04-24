@@ -1,5 +1,20 @@
 #pragma once
 
+#include <cstddef>
+#include <iostream>
+enum class IDType { Card, Minion, Weapon, Hero };
+
+struct ID {
+  IDType type;
+  std::size_t number;
+
+  bool operator==(const ID &other) {
+    return other.type == type && other.number == number;
+  }
+
+  bool operator!=(const ID &other) { return !operator==(other); }
+};
+
 struct Damage {
   int amount;
   bool isPoison;
@@ -9,9 +24,10 @@ class Character;
 
 class DamageDealer {
 public:
-  DamageDealer(int attack) : attack(attack) {}
   virtual ~DamageDealer() = default;
-  virtual void dealDamage(Damage damage, Character *target);
+  virtual void dealDamage(Character *target) = 0;
+
+  DamageDealer(int attack) : attack(attack) {}
 
   virtual int getAttack() = 0;
   int attack;
@@ -25,15 +41,16 @@ public:
   virtual void takeDamage(Damage damage) { health -= damage.amount; }
   int getHealth() { return health; }
 
+  void dealDamage(Character *target) override {
+
+    target->takeDamage({getAttack(), false});
+  }
+
   int getAttack() override { return attack; }
 
-private:
+protected:
   int health;
 };
-
-inline void DamageDealer::dealDamage(Damage damage, Character *target) {
-  target->takeDamage(damage);
-}
 
 enum class HSClasses {
   WARRIOR,

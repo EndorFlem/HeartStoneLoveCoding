@@ -17,6 +17,7 @@ HeroPower::HeroPower(HSClasses heroClass)
 
 void HeroPower::activate(Board *board, Character *target) {
   if (heroPower != nullptr) {
+    active = false;
     heroPower(board, target);
   }
 }
@@ -32,7 +33,6 @@ void HeroPower::roguePower(Board *board, Character *target) {
   Weapon *weapon = new Weapon(1, "Default blades", HSClasses::ROGUE, 1, 2, {});
 
   Hero *hero = dynamic_cast<Hero *>(target);
-  std::cout << "is hero ?" << std::endl;
   hero->equipWeapon(weapon);
 }
 

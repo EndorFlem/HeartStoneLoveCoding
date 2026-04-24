@@ -16,25 +16,25 @@ enum class MinionType {
   Elemental
 };
 
-class Minion : public Card,
-               public Character,
-               public DamageDealer,
-               public Attributable {
+class Minion : public Card, public Character, public Attributable {
 public:
   Minion(int cost, std::string name, HSClasses cardClass, int health,
          int attack)
-      : Card(cost, name, cardClass, CardType::Minion), Character(health),
-        DamageDealer(attack), Attributable(std::vector<Attribute *>{}) {}
+      : Card(cost, name, cardClass, CardType::Minion),
+        Character(health, attack), Attributable(std::vector<Attribute *>{}) {}
 
   Minion(int cost, std::string name, HSClasses cardClass, int health,
          int attack, std::vector<Attribute *> attributes)
-      : Card(cost, name, cardClass, CardType::Minion), Character(health),
-        DamageDealer(attack), Attributable(attributes) {}
+      : Card(cost, name, cardClass, CardType::Minion),
+        Character(health, attack), Attributable(attributes) {}
 
   Card *clone() override { return new Minion(*this); }
   int getAttack() override { return attack; }
 
+  void dealDamage(Character *target) override {
+    target->takeDamage({getAttack(), false});
+  }
+
 private:
-  int attack;
   MinionType type;
 };

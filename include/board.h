@@ -7,6 +7,7 @@
 #include "spell.h"
 #include "utilityclasses.h"
 #include "weapon.h"
+#include <cstddef>
 #include <numeric>
 #include <unordered_set>
 #include <vector>
@@ -16,113 +17,150 @@ class Spell;
 enum class TargetFor { SpellOrHeroPower, Character };
 enum class TargetSide { Mine, Enemies, Both };
 
+class BoardSide {
+  static constexpr size_t MAX_MINIONS_NUMBER = 7;
+
+public:
+  BoardSide(std::vector<Minion *> side) : side(side) {}
+
+  auto begin() { return side.begin(); }
+  auto end() { return side.end(); }
+  auto begin() const { return side.begin(); }
+  auto end() const { return side.end(); }
+
+  Minion *at(size_t i) { return side.at(i); }
+
+  bool addMinion(Minion *minion) {
+    if (side.size() == MAX_MINIONS_NUMBER) {
+      return false;
+    }
+
+    side.push_back(minion);
+    return true;
+  }
+
+  void removeMinion(size_t index) { side.erase(side.begin() + index); }
+
+  size_t size() const { return side.size(); }
+
+private:
+  std::vector<Minion *> side;
+};
+
 class Board {
 public:
-  Board(Hero *myHero, Hero *enemyHero, Deck *myDeck, Deck *enemyDeck,
-        std::vector<Minion *> *myMinions, std::vector<Minion *> *enemyMinions)
+  Board(Hero *myHero, Hero *enemyHero, BoardSide *myMinions,
+        BoardSide *enemyMinions)
       : myHero(myHero), enemyHero(enemyHero), myMinions(myMinions),
-        enemyMinions(enemyMinions), myDeck(myDeck), enemyDeck(enemyDeck) {}
-  void startTurn(int turn, Player *player, Deck *deck);
-  void printBoard();
+        enemyMinions(enemyMinions) {}
+  void printBoard(Player *me, Player *enemy, Player *currentPlayer);
 
   void dealDamage(Character *target, Damage damage);
-  bool playCard(Player *player, int i);
+  bool playCard(Player *player, Card *card);
   void activateHeroPower();
 
-  std::unordered_set<int> validTargets(TargetFor targetFor, TargetSide side) {
-    std::unordered_set<int> result;
-    switch (targetFor) {
-    case TargetFor::SpellOrHeroPower:
-      if (side == TargetSide::Both) {
-        for (int i = 0; i < enemyMinions->size(); i++) {
-          if (!enemyMinions[i][0]->containsElusive()) {
-            result.insert(i);
-          }
-        }
+  void printHero(Hero *hero, size_t pos, bool isCurrent, int mana);
+  void printMinion(size_t pos, size_t atack, size_t hp);
+  void printOneSide(size_t initPos, std::string boardName, Player *player,
+                    bool isCurrent);
 
-        // для героя
-        // надо как-нибудь сделать нормальную индексацию
-        result.insert(enemyMinions->size());
+  // std::unordered_set<int> validTargets(TargetFor targetFor, TargetSide side)
+  // {
+  //   std::unordered_set<int> result;
+  //   switch (targetFor) {
+  //   case TargetFor::SpellOrHeroPower:
+  //     if (side == TargetSide::Both) {
+  //       for (int i = 0; i < enemyMinions->size(); i++) {
+  //         if (!enemyMinions[i][0]->containsElusive()) {
+  //           result.insert(i);
+  //         }
+  //       }
 
-        for (int i = 0; i < myMinions->size(); i++) {
-          if (!enemyMinions[i][0]->containsElusive()) {
-            result.insert(i);
-          }
-        }
+  //       // для героя
+  //       // надо как-нибудь сделать нормальную индексацию
+  //       result.insert(enemyMinions->size());
 
-        // вообще у героя может быть свойство Elusive , но ладно , пусть будет
-        // так
-        result.insert(myMinions->size());
-        break;
-      }
+  //       for (int i = 0; i < myMinions->size(); i++) {
+  //         if (!enemyMinions[i][0]->containsElusive()) {
+  //           result.insert(i);
+  //         }
+  //       }
 
-    case TargetFor::Character:
-      if (side == TargetSide::Both) {
-        for (int i = 0; i < enemyMinions->size(); i++) {
-          if (enemyMinions[i][0]->containsTaunt()) {
-            result.insert(i);
-          }
-        }
+  //       // вообще у героя может быть свойство Elusive , но ладно , пусть
+  //       будет
+  //       // так
+  //       result.insert(myMinions->size());
+  //       break;
+  //     }
 
-        if (!result.empty()) {
-          return result;
-        }
-        for (int i = 0; i < enemyMinions->size(); i++) {
-          result.insert(i);
-        }
+  //   case TargetFor::Character:
+  //     if (side == TargetSide::Both) {
+  //       for (int i = 0; i < enemyMinions->size(); i++) {
+  //         if (enemyMinions[i][0]->containsTaunt()) {
+  //           result.insert(i);
+  //         }
+  //       }
 
-        // для героя
-        // надо как-нибудь сделать нормальную индексацию
-        result.insert(enemyMinions->size());
-      }
+  //       if (!result.empty()) {
+  //         return result;
+  //       }
+  //       for (int i = 0; i < enemyMinions->size(); i++) {
+  //         result.insert(i);
+  //       }
 
-      break;
-    }
-    return result;
-  }
+  //       // для героя
+  //       // надо как-нибудь сделать нормальную индексацию
+  //       result.insert(enemyMinions->size());
+  //     }
 
-  // ужасный метод
-  Character *getCharacterByPosition(int postion) {
-    if (postion <= enemyMinions->size()) {
-      if (postion == enemyMinions->size())
-        return enemyHero;
+  //     break;
+  //   }
+  //   return result;
+  // }
 
-      return enemyMinions[postion][0];
-    }
+  // // ужасный метод
+  // Character *getCharacterByPosition(int postion) {
+  //   if (postion <= enemyMinions->size()) {
+  //     if (postion == enemyMinions->size())
+  //       return enemyHero;
 
-    int offset = enemyMinions->size();
-    if (postion == myMinions->size() + offset)
-      return myHero;
+  //     return enemyMinions[postion][0];
+  //   }
 
-    return myMinions[postion - offset][0];
-  }
+  //   int offset = enemyMinions->size();
+  //   if (postion == myMinions->size() + offset)
+  //     return myHero;
 
-  Character *getOpositeHero(Hero *hero) {
-    return myHero == hero ? enemyHero : myHero;
-  }
+  //   return myMinions[postion - offset][0];
+  // }
 
-  TargetSide getOpositeSide(Hero *hero) {
-    return hero == myHero ? TargetSide::Enemies : TargetSide::Mine;
-  }
+  // Character *getOpositeHero(Hero *hero) {
+  //   return myHero == hero ? enemyHero : myHero;
+  // }
 
-  std::unordered_set<int> getCharacterPositionsOnHeroSide(Hero *hero) {
-    int offset = hero == myHero ? enemyMinions->size() : 0;
-    int number = hero == myHero ? myMinions->size() : enemyMinions->size();
-    std::unordered_set<int> result;
-    for (int i = 0; i < number; i++) {
-      result.insert(i + offset);
-    }
+  // TargetSide getOpositeSide(Hero *hero) {
+  //   return hero == myHero ? TargetSide::Enemies : TargetSide::Mine;
+  // }
 
-    return result;
-  }
+  // std::unordered_set<int> getCharacterPositionsOnHeroSide(Hero *hero) {
+  //   int offset = hero == myHero ? enemyMinions->size() : 0;
+  //   int number = hero == myHero ? myMinions->size() : enemyMinions->size();
+  //   std::unordered_set<int> result;
+  //   for (int i = 0; i < number; i++) {
+  //     result.insert(i + offset);
+  //   }
+
+  //   return result;
+  // }
 
 private:
   Hero *myHero;
   Hero *enemyHero;
-  std::vector<Minion *> *myMinions;
-  std::vector<Minion *> *enemyMinions;
-  Deck *myDeck;
-  Deck *enemyDeck;
+
+  BoardSide *myMinions;
+  BoardSide *enemyMinions;
+
+  friend class TargetSelector;
 
   void playSpell(Player *player, Spell *spell);
   void playWeapon(Player *player, Weapon *weapon);

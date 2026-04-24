@@ -16,6 +16,7 @@ public:
   Deck(std::vector<Card *> cards) : cards(cards) {};
   Deck() : cards(std::vector<Card *>()) {};
   DrawResult draw();
+  const std::vector<Card *> &getCards() const { return cards; }
 
 private:
   int damage = 0;

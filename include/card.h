@@ -11,6 +11,8 @@ public:
   Card(int cost, std::string name, HSClasses cardClass, CardType type)
       : cost(cost), name(name), cardClass(cardClass), type(type) {}
 
+  void setID(ID id) { this->id = id; }
+  ID getID() { return id; }
   std::string getName() { return name; }
   int getCost() { return cost; }
 
@@ -19,4 +21,6 @@ private:
   std::string name;
   HSClasses cardClass;
   CardType type;
+
+  ID id;
 };

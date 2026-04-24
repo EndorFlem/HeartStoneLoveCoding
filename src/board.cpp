@@ -1,20 +1,27 @@
 #include "board.h"
-#include "deck.h"
+#include "hero.h"
 #include "minion.h"
+#include "player.h"
 #include "spell.h"
 #include "weapon.h"
 #include <cstddef>
 #include <iostream>
 #include <vector>
 
-void printMinion(int pos, int atack, int hp) {
+void Board::printMinion(size_t pos, size_t atack, size_t hp) {
   std::cout << "[" << pos << "]" << " " << atack << "/" << hp << "\n";
 }
-void printHero(Hero *hero, int pos) {
+
+void Board::printHero(Hero *hero, size_t pos, bool isCurrent, int mana) {
   std::cout << "[" << pos << "]" << hero->getName()
             << " hp:" << hero->getHealth();
 
-  if (hero->getAttack() != 0) {
+  if (hero->armor) {
+    std::cout << " armor: " << hero->armor;
+  }
+
+  if (hero->getAttack() != 0 && isCurrent) {
+
     if (hero->weapon) {
       std::cout << " {" << hero->getAttack() << "/" << hero->weapon->durability
                 << "}";
@@ -25,50 +32,37 @@ void printHero(Hero *hero, int pos) {
     }
   }
 
-  std::cout << " mana:" << hero->mana << "\n";
+  std::cout << " ";
+  std::cout << " mana:" << mana << "\n";
 }
-void printOneSide(int initPos, std::string boardName, Hero *hero,
-                  std::vector<Minion *> *minions) {
+
+void Board::printOneSide(size_t initPos, std::string boardName, Player *player,
+                         bool isCurrent) {
   std::cout << boardName << "\n";
-  printHero(hero, minions->size() + initPos);
+  printHero(player->hero, player->boardSide->size() + initPos, isCurrent,
+            player->manaPool.getMana());
 
-  for (size_t i = 0; i < minions->size(); i++) {
-
-    printMinion(i + initPos, minions[i][0]->getAttack(),
-                minions[i][0]->getHealth());
+  for (std::size_t i = 0; i < player->boardSide->size(); i++) {
+    printMinion(i + initPos, player->boardSide->at(i)->getAttack(),
+                player->boardSide->at(i)->getHealth());
   }
 }
 
-void Board::printBoard() {
-  printOneSide(0, "ENEMY BOARD", enemyHero, enemyMinions);
+void Board::printBoard(Player *me, Player *enemy, Player *currentPlayer) {
+  bool isEnemyCurrent = enemy == currentPlayer;
+  bool isMeCurrent = me == currentPlayer;
+
+  printOneSide(0, "ENEMY BOARD", enemy, isEnemyCurrent);
   std::cout
       << "---------------------------------------------------------------\n";
-  printOneSide(enemyMinions->size() + 1, "MY BOARD", myHero, myMinions);
+
+  int myOffset = static_cast<int>(enemy->boardSide->size()) + 1;
+  printOneSide(myOffset, "MY BOARD", me, isMeCurrent);
 }
 
-int refreshMana(int turn) { return std::min(turn, 10); }
-
-void Board::dealDamage(Character *target, Damage damage) {
-  target->takeDamage(damage);
-}
-
-void Board::startTurn(int turn, Player *player, Deck *deck) {
-  player->hero->mana = refreshMana(turn);
-  DrawResult drawed = deck->draw();
-  if (drawed.isEmpty) {
-    dealDamage(player->hero, {drawed.result.damage, false});
-    return;
-  }
-
-  player->addCardToHand(drawed.result.card);
-}
-
-bool Board::playCard(Player *player, int i) {
-  Card *card = player->hand[i];
-  player->hand.erase(player->hand.begin() + i);
-
+bool Board::playCard(Player *player, Card *card) {
   if (dynamic_cast<Minion *>(card)) {
-    if (player->side->size() == 7) {
+    if (player->boardSide->size() == 7) {
       return false;
     }
     playMinion(player, dynamic_cast<Minion *>(card));
@@ -82,12 +76,11 @@ bool Board::playCard(Player *player, int i) {
     playSpell(player, dynamic_cast<Spell *>(card));
   }
 
-  player->hero->mana -= card->getCost();
   return true;
 }
 
 void Board::playMinion(Player *player, Minion *minion) {
-  player->side->push_back(minion);
+  player->boardSide->addMinion(minion);
 }
 
 void Board::playWeapon(Player *player, Weapon *weapon) {

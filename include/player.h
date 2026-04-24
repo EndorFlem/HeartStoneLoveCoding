@@ -1,32 +1,45 @@
-#include "card.h"
+#pragma once
+
+#include "deck.h"
+#include "hand.h"
 #include "hero.h"
-#include "minion.h"
+#include "manaPool.h"
 #include <cstddef>
-#include <iostream>
-#include <vector>
+
+class BoardSide;
+class Board;
 class Player {
 public:
-  Player(Hero *hero, std::vector<Minion *> *side)
-      : hero(hero), side(side), hand(std::vector<Card *>()) {}
+  Player(Hero *hero, ManaPool manaPool, Hand hand, Deck deck,
+         BoardSide *boardSide)
+      : boardSide(boardSide), manaPool(manaPool), hand(hand), deck(deck),
+        hero(hero) {}
 
-  Player(Hero *hero, std::vector<Minion *> *side, std::vector<Card *> hand)
-      : hero(hero), side(side), hand(hand) {}
-  Hero *hero;
-  std::vector<Minion *> *side;
+  BoardSide *boardSide;
 
-  bool addCardToHand(Card *card) {
-    if (hand.size() == 10) {
+  bool addCardToHand(Card *card) { return hand.addCard(card); }
+  bool drawCard() {
+    DrawResult drawed = deck.draw();
+
+    if (drawed.isEmpty) {
+      hero->takeDamage({drawed.result.damage, false});
       return false;
     }
-    hand.push_back(card);
-    return true;
+    return addCardToHand(drawed.result.card);
   }
-  void printHand() {
-    for (size_t i = 0; i < hand.size(); i++) {
-      std::cout << "[" << i << "] " << hand[i]->getName() << " "
-                << hand[i]->getCost() << "\n";
-    }
-  };
+  void printHand() const { hand.print(); }
 
-  std::vector<Card *> hand;
+  void onTurnStart(size_t turn) {
+    manaPool.refreshMana(turn);
+    drawCard();
+    hero->heroPower.active = true;
+  }
+
+private:
+  friend class GameState;
+  friend class Board;
+  ManaPool manaPool;
+  Hand hand;
+  Deck deck;
+  Hero *hero;
 };
