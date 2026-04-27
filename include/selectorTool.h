@@ -13,6 +13,8 @@ class GameState;
 
 using GameStateSelector = std::function<Character *(GameState *)>;
 using GameStateWithIDSelector = std::function<Character *(GameState *, ID)>;
+using GameStateWithPositionSelector = std::function<Character *(GameState *, size_t)>;
+using MultiSelector = std::function<std::vector<Character *>(GameState *)>;
 
 class IDSelector {
   static Character *getCharacter(ID id);
@@ -51,8 +53,15 @@ class TargetSelector {
 public:
   static Character *myHero(GameState *state);
   static Character *oppositeHero(GameState *state);
-  static Character *opponentCharacterByID(ID id, GameState *state);
-  static Character *myCharacterByID(ID id, GameState *state);
+  static Character *opponentCharacterByID(GameState *state, ID id);
+  static Character *myCharacterByID(GameState *state, ID id);
+  static Character *opponentMinionByPosition(GameState *state, size_t position);
+  static Character *myMinionByPosition(GameState *state, size_t position);
+
+  static std::vector<Character *> allOpponentMinions(GameState *state);
+  static std::vector<Character *> allMyMinions(GameState *state);
+  static std::vector<Character *> allOpponentCharacters(GameState *state);
+  static std::vector<Character *> allCharacters(GameState *state);
 
 private:
   static Character *forHeroPower(HSClasses heroClass, Hero *currentHero,

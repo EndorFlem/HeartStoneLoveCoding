@@ -1,5 +1,6 @@
 #include "hero.h"
 #include "board.h"
+#include "gameState.h"
 #include "utilityclasses.h"
 #include "weapon.h"
 
@@ -15,40 +16,40 @@ const std::array<HeroPower::HeroPowerFunction, 9> HeroPower::heroPowers = {
 HeroPower::HeroPower(HSClasses heroClass)
     : cost(2), heroPower(heroPowers[static_cast<std::size_t>(heroClass)]) {}
 
-void HeroPower::activate(Board *board, Character *target) {
+void HeroPower::activate(Board *board, Character *target, GameState *state) {
   if (heroPower != nullptr) {
     active = false;
-    heroPower(board, target);
+    heroPower(board, target, state);
   }
 }
 
-void HeroPower::warriorPower(Board *board, Character *target) {
+void HeroPower::warriorPower(Board *board, Character *target, GameState *state) {
   Hero *hero = dynamic_cast<Hero *>(target);
   hero->armor += 2;
 }
 
-void HeroPower::magePower(Board *board, Character *target) {}
+void HeroPower::magePower(Board *board, Character *target, GameState *state) {}
 
-void HeroPower::roguePower(Board *board, Character *target) {
+void HeroPower::roguePower(Board *board, Character *target, GameState *state) {
   Weapon *weapon = new Weapon(1, "Default blades", HSClasses::ROGUE, 1, 2, {});
 
   Hero *hero = dynamic_cast<Hero *>(target);
-  hero->equipWeapon(weapon);
+  hero->equipWeapon(weapon, state);
 }
 
-void HeroPower::priestPower(Board *board, Character *target) {}
+void HeroPower::priestPower(Board *board, Character *target, GameState *state) {}
 
-void HeroPower::hunterPower(Board *board, Character *target) {
+void HeroPower::hunterPower(Board *board, Character *target, GameState *state) {
   target->takeDamage({2, false});
 }
 
-void HeroPower::shamanPower(Board *board, Character *target) {}
+void HeroPower::shamanPower(Board *board, Character *target, GameState *state) {}
 
-void HeroPower::druidPower(Board *board, Character *target) {
+void HeroPower::druidPower(Board *board, Character *target, GameState *state) {
   Hero *hero = dynamic_cast<Hero *>(target);
   hero->armor += 1;
 }
 
-void HeroPower::warlockPower(Board *board, Character *target) {}
+void HeroPower::warlockPower(Board *board, Character *target, GameState *state) {}
 
-void HeroPower::paladinPower(Board *board, Character *target) {}
+void HeroPower::paladinPower(Board *board, Character *target, GameState *state) {}

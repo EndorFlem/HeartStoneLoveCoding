@@ -1,4 +1,5 @@
 #include "board.h"
+#include "gameState.h"
 #include "hero.h"
 #include "minion.h"
 #include "player.h"
@@ -6,14 +7,15 @@
 #include "weapon.h"
 #include <cstddef>
 #include <iostream>
-#include <vector>
 
-void Board::printMinion(size_t pos, size_t atack, size_t hp) {
-  std::cout << "[" << pos << "]" << " " << atack << "/" << hp << "\n";
+void Board::printMinion(Minion *minion) {
+  ID id = minion->getID();
+  std::cout << "[" << id.number << "] " << minion->getName()
+            << " " << minion->getAttack() << "/" << minion->getHealth() << "\n";
 }
 
-void Board::printHero(Hero *hero, size_t pos, bool isCurrent, int mana) {
-  std::cout << "[" << pos << "]" << hero->getName()
+void Board::printHero(Hero *hero, bool isCurrent, int mana) {
+  std::cout << "[Hero] " << hero->getName()
             << " hp:" << hero->getHealth();
 
   if (hero->armor) {
@@ -36,15 +38,12 @@ void Board::printHero(Hero *hero, size_t pos, bool isCurrent, int mana) {
   std::cout << " mana:" << mana << "\n";
 }
 
-void Board::printOneSide(size_t initPos, std::string boardName, Player *player,
-                         bool isCurrent) {
+void Board::printOneSide(std::string boardName, Player *player, bool isCurrent) {
   std::cout << boardName << "\n";
-  printHero(player->hero, player->boardSide->size() + initPos, isCurrent,
-            player->manaPool.getMana());
+  printHero(player->hero, isCurrent, player->manaPool.getMana());
 
   for (std::size_t i = 0; i < player->boardSide->size(); i++) {
-    printMinion(i + initPos, player->boardSide->at(i)->getAttack(),
-                player->boardSide->at(i)->getHealth());
+    printMinion(player->boardSide->at(i));
   }
 }
 
@@ -52,40 +51,83 @@ void Board::printBoard(Player *me, Player *enemy, Player *currentPlayer) {
   bool isEnemyCurrent = enemy == currentPlayer;
   bool isMeCurrent = me == currentPlayer;
 
-  printOneSide(0, "ENEMY BOARD", enemy, isEnemyCurrent);
+  printOneSide("ENEMY BOARD", enemy, isEnemyCurrent);
   std::cout
       << "---------------------------------------------------------------\n";
 
-  int myOffset = static_cast<int>(enemy->boardSide->size()) + 1;
-  printOneSide(myOffset, "MY BOARD", me, isMeCurrent);
+  printOneSide("MY BOARD", me, isMeCurrent);
 }
 
-bool Board::playCard(Player *player, Card *card) {
+bool Board::playCard(Player *player, Card *card, GameState *state) {
   if (dynamic_cast<Minion *>(card)) {
-    if (player->boardSide->size() == 7) {
-      return false;
-    }
-    playMinion(player, dynamic_cast<Minion *>(card));
+    if (player->boardSide->size() == 7) return false;
+    playMinion(player, dynamic_cast<Minion *>(card), state);
   }
-
-  if (dynamic_cast<Weapon *>(card)) {
-    playWeapon(player, dynamic_cast<Weapon *>(card));
-  }
-
-  if (dynamic_cast<Spell *>(card)) {
-    playSpell(player, dynamic_cast<Spell *>(card));
-  }
-
+  if (dynamic_cast<Weapon *>(card)) playWeapon(player, dynamic_cast<Weapon *>(card), state);
+  if (dynamic_cast<Spell *>(card))  playSpell(player, dynamic_cast<Spell *>(card), state);
   return true;
 }
 
-void Board::playMinion(Player *player, Minion *minion) {
-  player->boardSide->addMinion(minion);
+bool Board::playCard(Player *player, Card *card, GameState *state, Character *target) {
+  if (dynamic_cast<Spell *>(card)) {
+    playSpell(player, dynamic_cast<Spell *>(card), state, target);
+    return true;
+  }
+  return playCard(player, card, state);
 }
 
-void Board::playWeapon(Player *player, Weapon *weapon) {
-  std::cout << "IMPLEMENT WEOPNS";
+bool Board::playCard(Player *player, Card *card, GameState *state, const std::vector<Character *> &targets) {
+  if (dynamic_cast<Spell *>(card)) {
+    playSpell(player, dynamic_cast<Spell *>(card), state, targets);
+    return true;
+  }
+  return playCard(player, card, state);
 }
-void Board::playSpell(Player *player, Spell *spell) {
-  std::cout << "IMPLEMENT SPELLS";
+
+void Board::playMinion(Player *player, Minion *minion, GameState *state) {
+  minion->onSummoned();
+  player->boardSide->addMinion(minion);
+  minion->triggerOnPlay(state);
+}
+
+void Board::playWeapon(Player *player, Weapon *weapon, GameState *state) {
+  player->hero->equipWeapon(weapon ,state);
+  weapon->triggerOnPlay(state);
+}
+
+void Board::playSpell(Player *player, Spell *spell, GameState *state) {
+  (void)player;
+  if (spell->effect) spell->effect(state);
+}
+
+void Board::playSpell(Player *player, Spell *spell, GameState *state, Character *target) {
+  (void)player;
+  if (spell->isTargeted()) spell->targetedEffect(state, target);
+  else if (spell->effect)  spell->effect(state);
+}
+
+void Board::playSpell(Player *player, Spell *spell, GameState *state, const std::vector<Character *> &targets) {
+  (void)player;
+  if (spell->isTargeted()) {
+    for (Character *target : targets) spell->targetedEffect(state, target);
+  } else if (spell->effect) {
+    spell->effect(state);
+  }
+}
+
+void Board::removeDeadMinions(GameState *state) {
+  auto removeDead = [state](BoardSide *side) {
+    for (size_t i = 0; i < side->size();) {
+      Minion *minion = side->at(i);
+      if (minion->isDead()) {
+        minion->triggerOnDeath(state);
+        side->removeMinion(i);
+      } else {
+        i++;
+      }
+    }
+  };
+
+  removeDead(myMinions);
+  removeDead(enemyMinions);
 }

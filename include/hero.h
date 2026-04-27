@@ -1,5 +1,6 @@
 #pragma once
 
+#include "attributes.h"
 #include "utilityclasses.h"
 #include "weapon.h"
 #include <array>
@@ -12,7 +13,7 @@ class Board;
 class HeroPower {
 private:
   using HeroPowerFunction =
-      std::function<void(Board *board, Character *target)>;
+      std::function<void(Board *board, Character *target, GameState *state)>;
   static const std::array<HeroPowerFunction, 9> heroPowers;
 
   size_t cost;
@@ -21,20 +22,20 @@ private:
 
 public:
   HeroPower(HSClasses heroClass);
-  void activate(Board *board, Character *target);
+  void activate(Board *board, Character *target, GameState *state);
   size_t getCost() { return cost; }
   bool isActive() { return active; }
 
 private:
-  static void warriorPower(Board *board, Character *target);
-  static void magePower(Board *board, Character *target);
-  static void roguePower(Board *board, Character *target);
-  static void priestPower(Board *board, Character *target);
-  static void hunterPower(Board *board, Character *target);
-  static void shamanPower(Board *board, Character *target);
-  static void druidPower(Board *board, Character *target);
-  static void warlockPower(Board *board, Character *target);
-  static void paladinPower(Board *board, Character *target);
+  static void warriorPower(Board *board, Character *target,GameState *state);
+  static void magePower(Board *board, Character *target, GameState *state);
+  static void roguePower(Board *board, Character *target, GameState *state);
+  static void priestPower(Board *board, Character *target, GameState *state);
+  static void hunterPower(Board *board, Character *target, GameState *state);
+  static void shamanPower(Board *board, Character *target, GameState *state);
+  static void druidPower(Board *board, Character *target, GameState *state);
+  static void warlockPower(Board *board, Character *target, GameState *state);
+  static void paladinPower(Board *board, Character *target, GameState *state);
 
   friend class Player;
 };
@@ -51,10 +52,10 @@ public:
 
   std::string getName() const { return name; }
 
-  void equipWeapon(Weapon *newWeapon) {
+  void equipWeapon(Weapon *newWeapon, GameState *state) {
 
-    if (weapon && weapon->containsDeathratle()) {
-      weapon->triggerDeathratles();
+    if (weapon && weapon->containsAttribute<Deathrattle>()) {
+      weapon->triggerOnDeath(state);
     }
 
     weapon = newWeapon;

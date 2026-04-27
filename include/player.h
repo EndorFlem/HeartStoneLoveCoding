@@ -33,6 +33,7 @@ public:
     manaPool.refreshMana(turn);
     drawCard();
     hero->heroPower.active = true;
+    hero->onTurnStart();
   }
 
 private:

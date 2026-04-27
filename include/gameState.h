@@ -15,13 +15,21 @@ enum class IllegalStates {
   CharacterHasNoAttack,
   TurnHasNotEnded,
   TurnHasNotStarted,
+  CharacterIsExhausted,
+  CharacterHasSummoningSickness,
 };
 
-static constexpr std::array<const char *, 8> illegalStateStrings = {
-    "Legal",           "CardWrongHandPosition",
-    "NotEnoughMana",   "HeroPowerHasAlreadyBeenUsed",
-    "NoTarget",        "CharacterHasNoAttack",
-    "TurnHasNotEnded", "TurnHasNotStarted"};
+static constexpr std::array<const char *, 10> illegalStateStrings = {
+    "OK",
+    "Карта не найдена в руке на указанной позиции",
+    "Недостаточно маны",
+    "Сила героя уже использована в этот ход",
+    "Цель не выбрана",
+    "Персонаж не может атаковать: нет атаки",
+    "Ход ещё не завершён",
+    "Ход ещё не начат",
+    "Персонаж уже атаковал в этот ход",
+    "Существо не может атаковать в ход своего призыва"};
 
 static const char *illegalStateToString(IllegalStates state) {
   return illegalStateStrings[static_cast<std::size_t>(state)];
@@ -35,140 +43,88 @@ class GameState {
   static constexpr size_t MAX_PLAYERS = 2;
 
 public:
-  GameState(std::array<Player *, MAX_PLAYERS> players, Board *board)
-      : board(board), players(players) {
-    initializeCardIDs();
-  }
+  GameState(std::array<Player *, MAX_PLAYERS> players, Board *board);
 
-  GameState &startTurn() {
-    if (stateToBool(state) || hasFinished)
-      return *this;
+  GameState &startTurn();
 
-    if (turnStarted) {
-      state = IllegalStates::TurnHasNotEnded;
-      return *this;
-    }
+  Hero *getOppositeHero();
+  Hero *getCurrentHero();
+  Player *getOppositePlayer();
+  Player *getCurrentPlayer();
 
-    turnStarted = true;
-    turn++;
-    currentPlayer = players[turn % MAX_PLAYERS];
-    currentPlayer->onTurnStart(turn / MAX_PLAYERS + 1);
-
-    return *this;
-  }
-
-  Hero *getOppositeHero() { return players[(turn + 1) % MAX_PLAYERS]->hero; }
-  Hero *getCurrentHero() { return players[(turn) % MAX_PLAYERS]->hero; }
-  Player *getOppositePlayer() { return players[(turn + 1) % MAX_PLAYERS]; }
-  Player *getCurrentPlayer() { return players[(turn) % MAX_PLAYERS]; }
-
-  IllegalStates endTurn() {
-    if (!turnStarted) {
-      state = IllegalStates::TurnHasNotStarted;
-      return state;
-    }
-    turnStarted = false;
-    return state;
-  }
+  IllegalStates endTurn();
 
   GameState &playCard(int) = delete;
 
-  // сыграть карту не из руки
-  GameState &playCard(Card *card) {
-    if (stateToBool(state) || hasFinished)
-      return *this;
 
-    assignPlayedCardID(card);
-    board->playCard(currentPlayer, card);
-
-    return *this;
-  }
+  GameState &playCard(Card *card);
   GameState &playCard(std::nullptr_t) = delete;
 
-  // сыграть карту из руки
-  GameState &playCardByPosition(size_t position) {
 
-    if (stateToBool(state) || hasFinished)
-      return *this;
+  GameState &playCardByPosition(size_t position);
+  GameState &playCardByPosition(size_t position, GameStateSelector selector);
+  GameState &playCardByPosition(size_t position, GameStateWithIDSelector selector, ID id);
+  GameState &playCardByPosition(size_t position, MultiSelector selector);
+  GameState &playCardByPosition(size_t cardPosition, GameStateWithPositionSelector selector, size_t targetPostion);
 
-    Card *card = HandSelector::getCardByPosition(currentPlayer->hand, position);
-    if (!card) {
-      state = IllegalStates::CardWrongHandPosition;
-      return *this;
-    }
+  GameState &useHeroPower();
+  GameState &useHeroPower(Character *target);
 
-    if (!currentPlayer->manaPool.reduceMana(card->getCost())) {
-      state = IllegalStates::NotEnoughMana;
-      return *this;
-    }
+  GameState &attack(Character *attacker, Character *target);
+  GameState &attack(GameStateWithPositionSelector attackerSelector, size_t attackerPosition, GameStateWithPositionSelector targetSelector, size_t targetPosition);
+  GameState &attack(GameStateWithPositionSelector attackerSelector, size_t attackerPosition, GameStateSelector targetSelector);
 
-    currentPlayer->hand.removeAt(position);
-    return playCard(card);
-  }
+  GameState &attackWithHero(GameStateWithIDSelector selector, ID id);
+  GameState &attackWithHero(GameStateSelector selector);
+  GameState &attackWithHero(GameStateWithPositionSelector selector, size_t position);
 
-  GameState &useHeroPower() {
-    Character *target = TargetSelector::forHeroPower(
-        currentPlayer->hero->heroClass, currentPlayer->hero,
-        getOppositePlayer()->hero);
+  GameState &dealDamage(Character *target, int amount);
+  GameState &dealDamage(GameStateSelector selector, int amount);
+  GameState &dealDamage(GameStateWithIDSelector selector, ID id, int amount);
+  GameState &dealDamage(GameStateWithPositionSelector selector, size_t position, int amount);
+  GameState &dealDamage(MultiSelector selector, int amount);
 
-    return useHeroPower(target);
-  }
+  GameState &heal(Character *target, int amount);
+  GameState &heal(GameStateSelector selector, int amount);
+  GameState &heal(GameStateWithIDSelector selector, ID id, int amount);
+  GameState &heal(GameStateWithPositionSelector selector, size_t position, int amount);
+  GameState &heal(MultiSelector selector, int amount);
 
-  GameState &useHeroPower(Character *target) {
-    if (stateToBool(state) || hasFinished)
-      return *this;
 
-    if (!target) {
-      state = IllegalStates::NoTarget;
-      return *this;
-    }
+  GameState &buffMaxHealth(Character *target, int amount);
+  GameState &buffMaxHealth(GameStateSelector selector, int amount);
+  GameState &buffMaxHealth(MultiSelector selector, int amount);
 
-    if (!currentPlayer->manaPool.reduceMana(
-            currentPlayer->hero->heroPower.getCost())) {
-      state = IllegalStates::NotEnoughMana;
-      return *this;
-    }
-    if (!currentPlayer->hero->heroPower.isActive()) {
-      state = IllegalStates::HeroPowerHasAlreadyBeenUsed;
-      return *this;
-    }
+  GameState &buffMaxAttack(Character *target, int amount);
+  GameState &buffMaxAttack(GameStateSelector selector, int amount);
+  GameState &buffMaxAttack(MultiSelector selector, int amount);
 
-    currentPlayer->hero->heroPower.activate(board, target);
+  GameState &buffHealth(Character *target, int amount);
+  GameState &buffHealth(GameStateSelector selector, int amount);
+  GameState &buffHealth(MultiSelector selector, int amount);
 
-    return *this;
-  }
 
-  GameState &attack(Character *attacker, Character *target) {
-    if (stateToBool(state) || hasFinished)
-      return *this;
+  GameState &buffAttack(Character *target, int amount);
+  GameState &buffAttack(GameStateSelector selector, int amount);
+  GameState &buffAttack(MultiSelector selector, int amount);
 
-    if (!attacker || !target) {
-      state = IllegalStates::NoTarget;
-      return *this;
-    }
+  GameState &setAttack(Character *target, int value);
+  GameState &setAttack(GameStateSelector selector, int value);
+  GameState &setAttack(MultiSelector selector, int value);
 
-    attacker->dealDamage(target);
-    return *this;
-  }
+  GameState &setHealth(Character *target, int value);
+  GameState &setHealth(GameStateSelector selector, int value);
+  GameState &setHealth(MultiSelector selector, int value);
 
-  GameState &attackWithHero(GameStateWithIDSelector selector, ID id) {
-    return attackWithHero(selector(this, id));
-  }
+  bool isFinished();
 
-  GameState &attackWithHero(GameStateSelector selector) {
-    return attackWithHero(selector(this));
-  };
+  bool isIllegal();
 
-  bool isFinished() { return hasFinished; }
+  GameState &printBoard();
 
-  bool isIllegal() { return stateToBool(state); }
+  GameState &printState();
 
-  void printBoard() {
-    board->printBoard(currentPlayer, getOppositePlayer(), currentPlayer);
-    currentPlayer->printHand();
-  }
-
-  void printState() { std::cout << illegalStateToString(state); }
+  GameState &printIDs();
 
 private:
   IllegalStates state = IllegalStates::Legal;
@@ -180,66 +136,20 @@ private:
   bool turnStarted = false;
   std::size_t nextCardIDNumber = 0;
 
-  GameState &attackWithHero(Character *target) {
-    if (stateToBool(state) || hasFinished)
-      return *this;
-
-    if (!currentPlayer->hero->getAttack()) {
-      state = IllegalStates::CharacterHasNoAttack;
-      return *this;
-    }
-
-    if (!target) {
-      state = IllegalStates::NoTarget;
-      return *this;
-    }
-
-    currentPlayer->hero->dealDamage(target);
-    return *this;
-  }
+  GameState &attackWithHero(Character *target);
 
   friend class TargetSelector;
 
-  void initializeCardIDs() {
-    for (Player *player : players) {
-      assignCollectionIDType(player->hand.getCards(), IDType::Card);
-      assignCollectionIDType(player->deck.getCards(), IDType::Card);
-    }
-  }
+  void initializeCardIDs();
 
-  void assignCollectionIDType(const std::vector<Card *> &cards, IDType type) {
-    for (Card *card : cards) {
-      assignNewID(card, type);
-    }
-  }
+  void assignCollectionIDType(const std::vector<Card *> &cards, IDType type);
 
-  void assignNewID(Card *card, IDType type) {
-    if (card == nullptr) {
-      return;
-    }
+  void assignNewID(Card *card, IDType type);
 
-    card->setID({type, nextCardIDNumber++});
-  }
+  void assignPlayedCardID(Card *card);
 
-  void assignPlayedCardID(Card *card) {
-    if (dynamic_cast<Minion *>(card) != nullptr) {
-      assignNewID(card, IDType::Minion);
-      return;
-    }
+  void checkDeaths();
+  void checkForFinish();
 
-    if (dynamic_cast<Weapon *>(card) != nullptr) {
-      assignNewID(card, IDType::Weapon);
-      return;
-    }
-
-    assignNewID(card, IDType::Card);
-  }
-
-  void checkForFinish() {
-    for (auto player : players) {
-      if (player->hero->isDead()) {
-        hasFinished = true;
-      }
-    }
-  }
+  Card *takeCardFromHand(size_t position);
 };

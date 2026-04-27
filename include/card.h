@@ -12,9 +12,9 @@ public:
       : cost(cost), name(name), cardClass(cardClass), type(type) {}
 
   void setID(ID id) { this->id = id; }
-  ID getID() { return id; }
-  std::string getName() { return name; }
-  int getCost() { return cost; }
+  ID getID() const { return id; }
+  std::string getName() const { return name; }
+  int getCost() const { return cost; }
 
 private:
   int cost;
